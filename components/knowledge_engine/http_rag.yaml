@@ -1,0 +1,290 @@
+apiVersion: v1
+kind: KnowledgeEngine
+metadata:
+  name: http_rag
+  label:
+    en_US: HTTP RAG Connector
+    zh_Hans: HTTP RAG 连接器
+  description:
+    en_US: Generic connector for any RAG service with HTTP API. Define request templates and response mappings to connect to any knowledge base.
+    zh_Hans: 通用 HTTP RAG 连接器，可对接任何提供 HTTP API 的知识库服务。通过定义请求模板和响应字段映射即可完成对接。
+spec:
+  creation_schema:
+    # ── Connection ──
+    - name: api_base_url
+      label:
+        en_US: API Base URL
+        zh_Hans: API 基础地址
+      description:
+        en_US: 'Base URL of the RAG service (e.g. http://localhost:8080)'
+        zh_Hans: 'RAG 服务的基础地址（如 http://localhost:8080）'
+      type: string
+      required: true
+
+    - name: api_key
+      label:
+        en_US: API Key
+        zh_Hans: API 密钥
+      description:
+        en_US: 'API key for authentication'
+        zh_Hans: '用于认证的 API 密钥'
+      type: password
+      required: true
+
+    - name: auth_header_prefix
+      label:
+        en_US: Auth Header Prefix
+        zh_Hans: 认证头前缀
+      description:
+        en_US: 'Prefix before API key in Authorization header (default: Bearer)'
+        zh_Hans: 'Authorization 请求头中 API 密钥前的前缀（默认：Bearer）'
+      type: string
+      default: Bearer
+      required: false
+
+    # ── Retrieval ──
+    - name: retrieve_endpoint
+      label:
+        en_US: Retrieval Endpoint
+        zh_Hans: 检索接口路径
+      description:
+        en_US: 'API path for retrieval (e.g. /api/v1/retrieval). Supports {{ dataset_id }} variable.'
+        zh_Hans: '检索接口的路径（如 /api/v1/retrieval），支持 {{ dataset_id }} 变量。'
+      type: string
+      required: true
+
+    - name: retrieve_body_template
+      label:
+        en_US: Retrieval Request Body Template
+        zh_Hans: 检索请求体模板
+      description:
+        en_US: |
+          JSON template for the retrieval request body. Use {{ variable }} for dynamic values.
+          Available variables: query, top_k, similarity_threshold, dataset_id, and any custom field defined above.
+          Example: {"question": "{{ query }}", "top_k": {{ top_k }}}
+        zh_Hans: |
+          检索请求的 JSON 模板，使用 {{ variable }} 插入动态值。
+          可用变量：query, top_k, similarity_threshold, dataset_id，以及上方定义的自定义字段。
+          示例：{"question": "{{ query }}", "top_k": {{ top_k }}}
+      type: text
+      required: true
+
+    - name: retrieve_results_path
+      label:
+        en_US: Results Array Path
+        zh_Hans: 结果数组路径
+      description:
+        en_US: 'Dot-separated path to the results array in the response JSON (e.g. data.chunks, records)'
+        zh_Hans: '响应 JSON 中结果数组的点分路径（如 data.chunks、records）'
+      type: string
+      required: true
+
+    - name: retrieve_content_fields
+      label:
+        en_US: Content Field(s)
+        zh_Hans: 内容字段
+      description:
+        en_US: 'Field name(s) for result text content. Comma-separated for multiple fields (e.g. content or q,a). Supports dot notation (e.g. segment.content).'
+        zh_Hans: '结果文本内容的字段名，多个字段用逗号分隔（如 content 或 q,a），支持点分路径（如 segment.content）。'
+      type: string
+      default: content
+      required: true
+
+    - name: retrieve_score_field
+      label:
+        en_US: Score Field
+        zh_Hans: 分数字段
+      description:
+        en_US: 'Field name for similarity score in each result (e.g. similarity, score). Supports dot notation. Leave empty if not available.'
+        zh_Hans: '每条结果中相似度分数的字段名（如 similarity、score），支持点分路径。无分数字段则留空。'
+      type: string
+      default: ''
+      required: false
+
+    - name: retrieve_id_field
+      label:
+        en_US: ID Field
+        zh_Hans: ID 字段
+      description:
+        en_US: 'Field name for result ID (e.g. id). Supports dot notation. Leave empty if not available.'
+        zh_Hans: '每条结果中 ID 的字段名（如 id），支持点分路径。无 ID 字段则留空。'
+      type: string
+      default: ''
+      required: false
+
+    - name: dataset_id
+      label:
+        en_US: Dataset ID
+        zh_Hans: 数据集 ID
+      description:
+        en_US: 'Dataset/knowledge base ID. Can be referenced as {{ dataset_id }} in templates.'
+        zh_Hans: '数据集/知识库 ID，可在模板中通过 {{ dataset_id }} 引用。'
+      type: string
+      default: ''
+      required: false
+
+    # ── Ingestion (optional) ──
+    - name: enable_ingestion
+      label:
+        en_US: Enable File Upload
+        zh_Hans: 启用文件上传
+      description:
+        en_US: 'Enable uploading files to the RAG service'
+        zh_Hans: '启用向 RAG 服务上传文件的功能'
+      type: boolean
+      default: false
+      required: false
+
+    - name: ingest_endpoint
+      label:
+        en_US: Upload Endpoint
+        zh_Hans: 上传接口路径
+      description:
+        en_US: 'API path for file upload (e.g. /api/v1/datasets/{{ dataset_id }}/documents)'
+        zh_Hans: '文件上传接口路径（如 /api/v1/datasets/{{ dataset_id }}/documents）'
+      type: string
+      default: ''
+      required: false
+      show_if:
+        field: enable_ingestion
+        operator: eq
+        value: true
+
+    - name: ingest_file_field
+      label:
+        en_US: File Field Name
+        zh_Hans: 文件字段名
+      description:
+        en_US: 'Multipart form field name for the file (default: file)'
+        zh_Hans: '上传表单中文件字段的名称（默认：file）'
+      type: string
+      default: file
+      required: false
+      show_if:
+        field: enable_ingestion
+        operator: eq
+        value: true
+
+    - name: ingest_extra_body
+      label:
+        en_US: Upload Extra Data
+        zh_Hans: 上传附加数据
+      description:
+        en_US: 'Optional JSON data to send alongside the file (will be sent as the "data" form field). Supports {{ variable }} substitution.'
+        zh_Hans: '上传文件时附带的 JSON 数据（作为 "data" 表单字段发送），支持 {{ variable }} 变量替换。'
+      type: text
+      default: ''
+      required: false
+      show_if:
+        field: enable_ingestion
+        operator: eq
+        value: true
+
+    - name: ingest_doc_id_path
+      label:
+        en_US: Document ID Response Path
+        zh_Hans: 文档 ID 响应路径
+      description:
+        en_US: 'Dot-separated path to extract the document ID from the upload response (e.g. data.0.id)'
+        zh_Hans: '从上传响应中提取文档 ID 的点分路径（如 data.0.id）'
+      type: string
+      default: ''
+      required: false
+      show_if:
+        field: enable_ingestion
+        operator: eq
+        value: true
+
+    # ── Deletion (optional) ──
+    - name: enable_deletion
+      label:
+        en_US: Enable Document Deletion
+        zh_Hans: 启用文档删除
+      description:
+        en_US: 'Enable deleting documents from the RAG service'
+        zh_Hans: '启用从 RAG 服务中删除文档的功能'
+      type: boolean
+      default: false
+      required: false
+
+    - name: delete_endpoint
+      label:
+        en_US: Delete Endpoint
+        zh_Hans: 删除接口路径
+      description:
+        en_US: 'API path for document deletion. Supports {{ document_id }} and {{ dataset_id }} variables.'
+        zh_Hans: '文档删除接口路径，支持 {{ document_id }} 和 {{ dataset_id }} 变量。'
+      type: string
+      default: ''
+      required: false
+      show_if:
+        field: enable_deletion
+        operator: eq
+        value: true
+
+    - name: delete_method
+      label:
+        en_US: Delete HTTP Method
+        zh_Hans: 删除请求方法
+      description:
+        en_US: 'HTTP method for deletion'
+        zh_Hans: '删除请求使用的 HTTP 方法'
+      type: select
+      default: DELETE
+      options:
+        - name: DELETE
+          label:
+            en_US: DELETE
+            zh_Hans: DELETE
+        - name: POST
+          label:
+            en_US: POST
+            zh_Hans: POST
+      required: false
+      show_if:
+        field: enable_deletion
+        operator: eq
+        value: true
+
+    - name: delete_body_template
+      label:
+        en_US: Delete Request Body Template
+        zh_Hans: 删除请求体模板
+      description:
+        en_US: 'Optional JSON body for deletion request. Supports {{ document_id }} and {{ dataset_id }} variables. Leave empty if not needed.'
+        zh_Hans: '删除请求的 JSON 模板（可选），支持 {{ document_id }} 和 {{ dataset_id }} 变量。不需要请求体则留空。'
+      type: text
+      default: ''
+      required: false
+      show_if:
+        field: enable_deletion
+        operator: eq
+        value: true
+
+  retrieval_schema:
+    - name: top_k
+      label:
+        en_US: Top K
+        zh_Hans: 返回数量
+      description:
+        en_US: 'Maximum number of results to return (available as {{ top_k }} in template)'
+        zh_Hans: '最多返回的结果数量（可在模板中通过 {{ top_k }} 引用）'
+      type: integer
+      default: 5
+      required: false
+
+    - name: similarity_threshold
+      label:
+        en_US: Similarity Threshold
+        zh_Hans: 相似度阈值
+      description:
+        en_US: 'Minimum similarity score 0-1 (available as {{ similarity_threshold }} in template)'
+        zh_Hans: '最低相似度分数 0-1（可在模板中通过 {{ similarity_threshold }} 引用）'
+      type: float
+      default: 0.2
+      required: false
+
+execution:
+  python:
+    path: http_rag.py
+    attr: HttpRag
