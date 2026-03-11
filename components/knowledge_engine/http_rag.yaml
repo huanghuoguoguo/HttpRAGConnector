@@ -16,9 +16,10 @@ spec:
         en_US: API Base URL
         zh_Hans: API 基础地址
       description:
-        en_US: 'Base URL of the RAG service (e.g. http://localhost:8080)'
-        zh_Hans: 'RAG 服务的基础地址（如 http://localhost:8080）'
+        en_US: 'Base URL of the RAG service. Only fill the host/base prefix, not the full retrieval URL. Example for Dify: https://api.dify.ai/v1'
+        zh_Hans: 'RAG 服务的基础地址，只填基础地址，不要填完整检索 URL。按 Dify 示例可填 https://api.dify.ai/v1'
       type: string
+      default: https://api.dify.ai/v1
       required: true
 
     - name: api_key
@@ -26,10 +27,10 @@ spec:
         en_US: API Key
         zh_Hans: API 密钥
       description:
-        en_US: 'API key for authentication'
-        zh_Hans: '用于认证的 API 密钥'
+        en_US: 'API key used for authentication. It will be sent in the Authorization header.'
+        zh_Hans: '用于认证的 API 密钥。后端会把它放进 Authorization 请求头中。如果没有就不填。'
       type: password
-      required: true
+      required: flase
 
     - name: auth_header_prefix
       label:
@@ -48,9 +49,10 @@ spec:
         en_US: Retrieval Endpoint
         zh_Hans: 检索接口路径
       description:
-        en_US: 'API path for retrieval (e.g. /api/v1/retrieval). Supports {{ dataset_id }} variable.'
-        zh_Hans: '检索接口的路径（如 /api/v1/retrieval），支持 {{ dataset_id }} 变量。'
+        en_US: 'Retrieval API path only. Final URL = API Base URL + this path. Supports {{ dataset_id }}. Dify example: /datasets/{{ dataset_id }}/retrieve'
+        zh_Hans: '只填写检索接口路径。最终请求地址 = API Base URL + 这里的路径。支持 {{ dataset_id }}。Dify 示例：/datasets/{{ dataset_id }}/retrieve'
       type: string
+      default: /datasets/{{ dataset_id }}/retrieve
       required: true
 
     - name: retrieve_body_template
@@ -60,13 +62,30 @@ spec:
       description:
         en_US: |
           JSON template for the retrieval request body. Use {{ variable }} for dynamic values.
-          Available variables: query, top_k, similarity_threshold, dataset_id, and any custom field defined above.
-          Example: {"question": "{{ query }}", "top_k": {{ top_k }}}
+          query/top_k/similarity_threshold will be substituted at runtime.
+          Default example is compatible with Dify Dataset retrieval API.
         zh_Hans: |
           检索请求的 JSON 模板，使用 {{ variable }} 插入动态值。
-          可用变量：query, top_k, similarity_threshold, dataset_id，以及上方定义的自定义字段。
-          示例：{"question": "{{ query }}", "top_k": {{ top_k }}}
+          运行时会自动替换 query、top_k、similarity_threshold、dataset_id。
+          默认值已按 Dify Dataset 检索接口给出，可直接作为示例修改。
       type: text
+      default: |
+        {
+          "query": "{{ query }}",
+          "retrieval_model": {
+            "search_method": "semantic_search",
+            "reranking_enable": false,
+            "reranking_mode": null,
+            "reranking_model": {
+              "reranking_provider_name": "",
+              "reranking_model_name": ""
+            },
+            "weights": null,
+            "top_k": {{ top_k }},
+            "score_threshold_enabled": true,
+            "score_threshold": {{ similarity_threshold }}
+          }
+        }
       required: true
 
     - name: retrieve_results_path
@@ -74,9 +93,10 @@ spec:
         en_US: Results Array Path
         zh_Hans: 结果数组路径
       description:
-        en_US: 'Dot-separated path to the results array in the response JSON (e.g. data.chunks, records)'
-        zh_Hans: '响应 JSON 中结果数组的点分路径（如 data.chunks、records）'
+        en_US: 'Dot-separated path to the result array in the response JSON. Dify example: records'
+        zh_Hans: '响应 JSON 中结果数组的点分路径。Dify 示例：records'
       type: string
+      default: records
       required: true
 
     - name: retrieve_content_fields
@@ -84,10 +104,10 @@ spec:
         en_US: Content Field(s)
         zh_Hans: 内容字段
       description:
-        en_US: 'Field name(s) for result text content. Comma-separated for multiple fields (e.g. content or q,a). Supports dot notation (e.g. segment.content).'
-        zh_Hans: '结果文本内容的字段名，多个字段用逗号分隔（如 content 或 q,a），支持点分路径（如 segment.content）。'
+        en_US: 'Field name(s) used as the final chunk text. Comma-separated for multiple fields. Supports dot notation. Dify example: segment.content'
+        zh_Hans: '结果中会被当成最终知识文本的字段名，多个字段可用逗号分隔，支持点分路径。Dify 示例：segment.content'
       type: string
-      default: content
+      default: segment.content
       required: true
 
     - name: retrieve_score_field
@@ -95,10 +115,10 @@ spec:
         en_US: Score Field
         zh_Hans: 分数字段
       description:
-        en_US: 'Field name for similarity score in each result (e.g. similarity, score). Supports dot notation. Leave empty if not available.'
-        zh_Hans: '每条结果中相似度分数的字段名（如 similarity、score），支持点分路径。无分数字段则留空。'
+        en_US: 'Field name for similarity/relevance score in each result. Supports dot notation. Dify example: score. Leave empty if unavailable.'
+        zh_Hans: '每条结果中的相似度/相关度分数字段，支持点分路径。Dify 示例：score。没有就留空。'
       type: string
-      default: ''
+      default: score
       required: false
 
     - name: retrieve_id_field
@@ -106,10 +126,10 @@ spec:
         en_US: ID Field
         zh_Hans: ID 字段
       description:
-        en_US: 'Field name for result ID (e.g. id). Supports dot notation. Leave empty if not available.'
-        zh_Hans: '每条结果中 ID 的字段名（如 id），支持点分路径。无 ID 字段则留空。'
+        en_US: 'Field name for the unique result ID. Supports dot notation. Dify example: segment.id. Leave empty if unavailable.'
+        zh_Hans: '每条结果唯一 ID 的字段名，支持点分路径。Dify 示例：segment.id。没有就留空。'
       type: string
-      default: ''
+      default: segment.id
       required: false
 
     - name: dataset_id
@@ -117,8 +137,8 @@ spec:
         en_US: Dataset ID
         zh_Hans: 数据集 ID
       description:
-        en_US: 'Dataset/knowledge base ID. Can be referenced as {{ dataset_id }} in templates.'
-        zh_Hans: '数据集/知识库 ID，可在模板中通过 {{ dataset_id }} 引用。'
+        en_US: 'Dataset/knowledge base ID. If your endpoint or body contains {{ dataset_id }}, it will be substituted with this value.'
+        zh_Hans: '数据集/知识库 ID。如果你的接口路径或请求体里用了 {{ dataset_id }}，运行时会替换成这里的值。'
       type: string
       default: ''
       required: false
@@ -140,10 +160,10 @@ spec:
         en_US: Upload Endpoint
         zh_Hans: 上传接口路径
       description:
-        en_US: 'API path for file upload (e.g. /api/v1/datasets/{{ dataset_id }}/documents)'
-        zh_Hans: '文件上传接口路径（如 /api/v1/datasets/{{ dataset_id }}/documents）'
+        en_US: 'Upload API path only. Supports {{ dataset_id }}. Dify example: /datasets/{{ dataset_id }}/document/create-by-file'
+        zh_Hans: '只填写上传接口路径，支持 {{ dataset_id }}。Dify 示例：/datasets/{{ dataset_id }}/document/create-by-file'
       type: string
-      default: ''
+      default: /datasets/{{ dataset_id }}/document/create-by-file
       required: false
       show_if:
         field: enable_ingestion
@@ -155,8 +175,8 @@ spec:
         en_US: File Field Name
         zh_Hans: 文件字段名
       description:
-        en_US: 'Multipart form field name for the file (default: file)'
-        zh_Hans: '上传表单中文件字段的名称（默认：file）'
+        en_US: 'Multipart form field name for the file. Dify uses file.'
+        zh_Hans: '上传表单中文件字段的名称。Dify 默认使用 file。'
       type: string
       default: file
       required: false
@@ -170,10 +190,16 @@ spec:
         en_US: Upload Extra Data
         zh_Hans: 上传附加数据
       description:
-        en_US: 'Optional JSON data to send alongside the file (will be sent as the "data" form field). Supports {{ variable }} substitution.'
-        zh_Hans: '上传文件时附带的 JSON 数据（作为 "data" 表单字段发送），支持 {{ variable }} 变量替换。'
+        en_US: 'Optional JSON data sent alongside the file as the "data" form field. Supports {{ variable }} substitution. Default value matches Dify upload API.'
+        zh_Hans: '上传文件时附带的 JSON 数据，会作为表单中的 "data" 字段发送，支持 {{ variable }} 替换。默认值按 Dify 上传接口填写。'
       type: text
-      default: ''
+      default: |
+        {
+          "indexing_technique": "high_quality",
+          "process_rule": {
+            "mode": "automatic"
+          }
+        }
       required: false
       show_if:
         field: enable_ingestion
@@ -185,10 +211,10 @@ spec:
         en_US: Document ID Response Path
         zh_Hans: 文档 ID 响应路径
       description:
-        en_US: 'Dot-separated path to extract the document ID from the upload response (e.g. data.0.id)'
-        zh_Hans: '从上传响应中提取文档 ID 的点分路径（如 data.0.id）'
+        en_US: 'Dot-separated path used to extract the document ID from the upload response. Dify example: document.id'
+        zh_Hans: '上传成功后，从响应中提取文档 ID 的点分路径。Dify 示例：document.id'
       type: string
-      default: ''
+      default: document.id
       required: false
       show_if:
         field: enable_ingestion
@@ -212,10 +238,10 @@ spec:
         en_US: Delete Endpoint
         zh_Hans: 删除接口路径
       description:
-        en_US: 'API path for document deletion. Supports {{ document_id }} and {{ dataset_id }} variables.'
-        zh_Hans: '文档删除接口路径，支持 {{ document_id }} 和 {{ dataset_id }} 变量。'
+        en_US: 'Delete API path only. Supports {{ document_id }} and {{ dataset_id }}. Dify example: /datasets/{{ dataset_id }}/documents/{{ document_id }}'
+        zh_Hans: '只填写删除接口路径，支持 {{ document_id }} 和 {{ dataset_id }}。Dify 示例：/datasets/{{ dataset_id }}/documents/{{ document_id }}'
       type: string
-      default: ''
+      default: /datasets/{{ dataset_id }}/documents/{{ document_id }}
       required: false
       show_if:
         field: enable_deletion
@@ -251,8 +277,8 @@ spec:
         en_US: Delete Request Body Template
         zh_Hans: 删除请求体模板
       description:
-        en_US: 'Optional JSON body for deletion request. Supports {{ document_id }} and {{ dataset_id }} variables. Leave empty if not needed.'
-        zh_Hans: '删除请求的 JSON 模板（可选），支持 {{ document_id }} 和 {{ dataset_id }} 变量。不需要请求体则留空。'
+        en_US: 'Optional JSON body for deletion. Supports {{ document_id }} and {{ dataset_id }}. Leave empty if the delete API does not need a request body.'
+        zh_Hans: '删除请求体模板，可使用 {{ document_id }} 和 {{ dataset_id }}。如果删除接口本身不需要请求体，就留空。'
       type: text
       default: ''
       required: false
