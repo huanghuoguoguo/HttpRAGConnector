@@ -1,28 +1,170 @@
 # HttpRAGConnector
 
-通用 HTTP RAG 连接器。适合你的知识库服务已经提供 HTTP API，但还没有专门插件的情况。
+通用 HTTP RAG 连接器。把任何提供 HTTP API 的知识库服务接入 LangBot。
 
-如果你接的是 Dify、RAGFlow、FastGPT 这类常见平台，优先建议使用它们各自的专用插件。只有在没有专用插件，或者你要接一个自定义 HTTP 检索接口时，再使用这个插件。
+如果你接的是 Dify、RAGFlow、FastGPT 这类常见平台，**优先使用它们各自的专用插件**。只有在没有专用插件，或者你要接一个自定义 HTTP 检索接口时，再使用这个插件。
 
-## 这个插件到底怎么工作
+## 快速开始
 
-你只需要告诉插件两件事：
+最少只需要填 **3 个字段** 就能跑起来：
 
-1. 检索时应该请求哪个 HTTP 接口，请求体长什么样
-2. 接口返回后，结果数组、文本内容、分数、ID 分别在哪个字段里
+| 字段 | 填什么 | 示例 |
+|------|--------|------|
+| API Base URL | 你的 RAG 服务基础地址 | `https://your-rag.com/api/v1` |
+| Retrieval Endpoint | 检索接口路径 | `/search` |
+| API Key | 认证密钥（没有就留空） | `sk-xxx` |
+
+其余字段都有合理默认值：
+
+- **Request Body Template** 留空 → 自动发送 `{"query": "用户问题", "top_k": 5}`
+- **Results Array Path** 默认 `results`
+- **Content Field(s)** 默认 `content`
+- **Score Field** 默认 `score`
+- **ID Field** 默认 `id`
+
+如果你的 API 返回格式刚好匹配这些默认值，不需要改任何东西，直接就能用。
+
+## 它是怎么工作的
+
+你告诉插件两件事：
+
+1. **请求**：检索时应该请求哪个 HTTP 接口，请求体长什么样
+2. **响应**：接口返回后，结果数组、文本内容、分数、ID 分别在哪个字段里
 
 插件会自动把用户问题和检索参数填进请求里，再把响应转成 LangBot 可用的知识片段。
 
-## 最简单的理解
+## 字段说明
 
-如果你不知道每个字段怎么填，可以先按下面这套 Dify 示例填写。
+### 创建时要填的字段
 
-这套默认示例对应 Dify 的数据集检索接口：
+#### API Base URL（必填）
 
-- API Base URL: `https://api.dify.ai/v1`
-- Auth Header Prefix: `Bearer`
-- Retrieval Endpoint: `/datasets/{{ dataset_id }}/retrieve`
-- Request Body Template:
+目标服务的基础地址，只填域名和路径前缀，不包含具体接口路径。
+
+```
+https://your-rag-service.com/api/v1
+```
+
+#### API Key
+
+认证密钥。默认以 `Authorization: Bearer <key>` 方式发送。不需要认证则留空。
+
+#### Dataset ID
+
+数据集/知识库 ID。如果你的接口路径或请求体里用了 `{{ dataset_id }}`，运行时会替换成这里的值。不需要则留空。
+
+### 检索设置
+
+#### Retrieval Endpoint（必填）
+
+检索接口路径。最终请求地址 = API Base URL + 这里的路径。支持 `{{ dataset_id }}` 变量。
+
+```
+/search
+/datasets/{{ dataset_id }}/retrieve
+/api/query
+```
+
+#### Request Body Template
+
+检索请求的 JSON 模板。支持以下变量：
+
+| 变量 | 来源 |
+|------|------|
+| `{{ query }}` | 用户当前问题 |
+| `{{ top_k }}` | 检索设置里的返回数量 |
+| `{{ similarity_threshold }}` | 检索设置里的相似度阈值 |
+| `{{ dataset_id }}` | 创建时填写的 Dataset ID |
+
+**留空则自动使用**：`{"query": "{{ query }}", "top_k": {{ top_k }}}`
+
+自定义示例：
+
+```json
+{
+  "query": "{{ query }}",
+  "limit": {{ top_k }},
+  "min_score": {{ similarity_threshold }},
+  "collection": "{{ dataset_id }}"
+}
+```
+
+注意：字符串变量要加引号（`"{{ query }}"`），数字变量不加引号（`{{ top_k }}`）。
+
+#### Results Array Path（必填）
+
+响应 JSON 中结果数组的位置。用点分路径。
+
+| 你的响应结构 | 应该填 |
+|---|---|
+| `{"results": [...]}` | `results` |
+| `{"data": {"records": [...]}}` | `data.records` |
+| `{"hits": {"hits": [...]}}` | `hits.hits` |
+
+#### Content Field(s)（必填）
+
+每条结果中文本内容所在的字段。支持点分路径。多个字段用逗号分隔，会自动拼接。
+
+| 你的结果结构 | 应该填 |
+|---|---|
+| `{"content": "..."}` | `content` |
+| `{"segment": {"content": "..."}}` | `segment.content` |
+| `{"question": "...", "answer": "..."}` | `question,answer` |
+
+#### Score Field / ID Field
+
+分数和 ID 字段。留空表示不使用。
+
+#### Top K / Similarity Threshold
+
+返回数量和相似度阈值。会替换模板中的 `{{ top_k }}` 和 `{{ similarity_threshold }}`。
+
+### 高级连接设置
+
+点击「显示高级连接设置」展开。大部分情况不需要修改。
+
+| 字段 | 用途 | 什么时候改 |
+|------|------|-----------|
+| Auth Header Name | 认证头名称（默认 `Authorization`） | 服务要求 `X-API-Key` 等自定义头 |
+| Auth Header Prefix | 认证头前缀（默认 `Bearer`） | 服务要求裸 token（留空）或其他前缀 |
+| Extra Headers (JSON) | 附加请求头 | 多租户、版本头、自定义 trace header |
+| Verify SSL | SSL 证书校验（默认开启） | 内网自签名证书 |
+| Request Timeout | 请求超时（默认 30s） | 服务响应慢 |
+| Debug Mode | 调试日志（默认关闭） | 首次对接或排查问题 |
+
+### 高级检索设置
+
+点击「显示高级检索设置」展开。大部分情况不需要修改。
+
+| 字段 | 用途 | 什么时候改 |
+|------|------|-----------|
+| HTTP Method | 检索请求方法（默认 `POST`） | API 要求 `GET` 等其他方法 |
+| Payload Mode | 请求发送方式（默认 JSON body） | API 要求表单提交或查询参数 |
+| Metadata Field Mapping | 额外返回字段 | 需要来源、页码、URL 等信息 |
+| Skip Empty Content | 跳过空内容（默认开启） | 所有场景建议保持开启 |
+
+### 文件上传 / 文档删除
+
+打开对应开关后才需要填写，按提示填入你的 API 对应信息即可。
+
+## 常见场景配置示例
+
+### 最简单的 API
+
+API 接收 `POST {"query": "...", "top_k": N}`，返回 `{"results": [{"content": "...", "score": 0.9, "id": "1"}]}`。
+
+只需填：
+- **API Base URL**: `https://my-rag.com`
+- **Retrieval Endpoint**: `/search`
+- 其余全部留空/默认
+
+### Dify
+
+- **API Base URL**: `https://api.dify.ai/v1`
+- **API Key**: 你的 Dify Dataset API Key
+- **Dataset ID**: Dify 控制台中的数据集 ID
+- **Retrieval Endpoint**: `/datasets/{{ dataset_id }}/retrieve`
+- **Request Body Template**:
 
 ```json
 {
@@ -43,213 +185,27 @@
 }
 ```
 
-- Results Array Path: `records`
-- Content Field(s): `segment.content`
-- Score Field: `score`
-- ID Field: `segment.id`
-
-只要你再补上：
-
-- API Key: 你的 Dify API Key
-- Dataset ID: 你的 Dify 数据集 ID
-
-就能直接拿这个通用插件去连 Dify。
-
-## 前端字段怎么填
-
-下面按 LangBot 创建知识库时的表单字段来说明。
-
-### 创建时要填的字段
-
-注意：从当前版本开始，`Retrieval Endpoint`、`Retrieval Request Body Template`、`Results Array Path`、`Content Field(s)`、`Score Field`、`ID Field` 已移动到检索设置，不再属于创建时固定参数。
-
-#### API Base URL
-
-- 填什么：目标服务的基础地址，不带最后的具体接口路径
-- Dify 示例：`https://api.dify.ai/v1`
-- 程序怎么用：后端会把它和 `Retrieval Endpoint`、上传接口、删除接口路径拼成最终请求地址
-- 常见错误：不要写成完整检索 URL，例如不要直接填 `https://api.dify.ai/v1/datasets/xxx/retrieve`
-
-#### API Key
-
-- 填什么：服务的认证密钥
-- Dify 示例：你的 Dify Dataset API Key
-- 程序怎么用：后端会把它放进请求头 `Authorization: Bearer <API Key>`
-- 哪些情况必填：几乎所有需要鉴权的服务都必填；当前插件也按必填处理
-
-#### Auth Header Prefix
-
-- 填什么：`Authorization` 请求头里 API Key 前面的前缀
-- 默认值：`Bearer`
-- Dify 示例：`Bearer`
-- 程序怎么用：如果你填的是 `Bearer`，最终请求头就是 `Authorization: Bearer <API Key>`
-- 什么时候改：只有你的目标服务不是 Bearer 鉴权时才改
-
-#### Retrieval Endpoint
-
-- 填什么：检索接口路径，只填路径部分
-- Dify 示例：`/datasets/{{ dataset_id }}/retrieve`
-- 程序怎么用：后端会把 `API Base URL + Retrieval Endpoint` 拼成最终检索地址
-- 支持变量：`{{ dataset_id }}`
-- 常见错误：这里不要再重复写域名
-
-#### Retrieval Request Body Template
-
-- 填什么：检索请求体的 JSON 模板
-- Dify 示例：直接使用表单默认值
-- 程序怎么用：
-  - `{{ query }}` 会替换成用户当前提问
-  - `{{ top_k }}` 会替换成前端检索设置里的返回数量
-  - `{{ similarity_threshold }}` 会替换成前端检索设置里的相似度阈值
-  - `{{ dataset_id }}` 会替换成创建时填写的数据集 ID
-- 注意：
-  - 要填合法 JSON
-  - 字符串变量要加引号，比如 `"{{ query }}"`
-  - 数字变量一般不要加引号，比如 `{{ top_k }}`
-
-#### Results Array Path
-
-- 填什么：响应 JSON 里“结果数组”所在的位置
-- Dify 示例：`records`
-- 程序怎么用：后端会先找到这个数组，再逐条读取每个结果
-- 怎么判断该填什么：看你的接口返回里，真正的结果列表在哪个字段里
-
-#### Content Field(s)
-
-- 填什么：每条结果中正文内容所在字段
-- Dify 示例：`segment.content`
-- 程序怎么用：这个字段会被当成最终返回给模型的知识文本
-- 多字段写法：如果要把多个字段拼起来，可以写成 `question,answer`
-
-#### Score Field
-
-- 填什么：每条结果里的相关度/相似度分数字段
-- Dify 示例：`score`
-- 程序怎么用：用于记录检索分数，便于排序和调试
-- 可不填：如果你的接口不返回分数，可以留空
-
-#### ID Field
-
-- 填什么：每条结果的唯一 ID 字段
-- Dify 示例：`segment.id`
-- 程序怎么用：用于标识结果来源；删除文档等场景也可能依赖它
-- 可不填：如果接口没有返回唯一 ID，可以留空
-
-#### Dataset ID
-
-- 填什么：目标知识库或数据集的 ID
-- Dify 示例：Dify 控制台 URL 中的那段 dataset id
-- 程序怎么用：
-  - 如果你的 Endpoint 里写了 `{{ dataset_id }}`，后端会替换进去
-  - 如果你的请求体模板里写了 `{{ dataset_id }}`，后端也会替换进去
-- 什么时候可留空：只有当你的接口根本不需要数据集 ID 时
-
-### 每次检索可调的字段
-
-#### Top K
-
-- 填什么：最多取回多少条结果
-- 默认值：`5`
-- 程序怎么用：替换模板中的 `{{ top_k }}`
-- 建议：一般填 `3` 到 `10` 即可
-
-#### Similarity Threshold
-
-- 填什么：最低相似度阈值
-- 默认值：`0.2`
-- 程序怎么用：替换模板中的 `{{ similarity_threshold }}`
-- 说明：只有你的目标接口真的使用这个字段时，它才会生效
-
-### 可选功能：文件上传
-
-打开 `Enable File Upload` 后才需要填写。
-
-#### Upload Endpoint
-
-- Dify 示例：`/datasets/{{ dataset_id }}/document/create-by-file`
-- 程序怎么用：上传文件时调用这个接口
-
-#### File Field Name
-
-- Dify 示例：`file`
-- 程序怎么用：作为 multipart/form-data 里的文件字段名
-
-#### Upload Extra Data
-
-- Dify 示例：
-
-```json
-{
-  "indexing_technique": "high_quality",
-  "process_rule": {
-    "mode": "automatic"
-  }
-}
-```
-
-- 程序怎么用：会作为表单中的 `data` 字段一起提交
-- 注意：这里也支持 `{{ dataset_id }}` 这类变量替换
-
-#### Document ID Response Path
-
-- Dify 示例：`document.id`
-- 程序怎么用：上传成功后，从响应里取出文档 ID
-
-### 可选功能：文档删除
-
-打开 `Enable Document Deletion` 后才需要填写。
-
-#### Delete Endpoint
-
-- Dify 示例：`/datasets/{{ dataset_id }}/documents/{{ document_id }}`
-- 程序怎么用：删除文档时会把 `{{ dataset_id }}` 和 `{{ document_id }}` 替换后发请求
-
-#### Delete HTTP Method
-
-- Dify 示例：`DELETE`
-- 程序怎么用：按你选的 HTTP 方法发删除请求
-
-#### Delete Request Body Template
-
-- Dify 示例：留空
-- 原因：Dify 的真实删除接口是 `DELETE /datasets/{dataset_id}/documents/{document_id}`，不带请求体
-- 程序怎么用：有些服务删除时需要 JSON 请求体，这里就填模板；像 Dify 这种不需要请求体的就留空
-
-## 变量说明
-
-| 变量 | 从哪里来 | 一般用在哪 |
-|------|----------|------------|
-| `{{ query }}` | 用户当前问题 | 检索请求体 |
-| `{{ top_k }}` | 检索设置里的 Top K | 检索请求体 |
-| `{{ similarity_threshold }}` | 检索设置里的 Similarity Threshold | 检索请求体 |
-| `{{ dataset_id }}` | 创建知识库时填写的 Dataset ID | endpoint / 请求体 |
-| `{{ document_id }}` | 系统在删除文档时提供 | 删除接口路径 / 删除请求体 |
-
-## 什么时候必须填，什么时候可以不填
-
-通常至少要填这些：
-
-- API Base URL
-- API Key
-- Retrieval Endpoint
-- Retrieval Request Body Template
-- Results Array Path
-- Content Field(s)
-
-以下字段经常需要，但不是所有服务都需要：
-
-- Dataset ID
-- Score Field
-- ID Field
-- Similarity Threshold
-
-以下字段只有启用对应功能才需要：
-
-- Upload Endpoint / File Field Name / Upload Extra Data / Document ID Response Path
-- Delete Endpoint / Delete HTTP Method / Delete Request Body Template
-
-## 适合谁用
-
-这个插件适合“我知道目标接口怎么调，但还没专门插件”的情况。
-
-如果你连目标服务的请求体和返回结构都不清楚，建议优先使用专用插件；如果你已经在用 Dify，也建议直接使用 `DifyDatasetsConnector`，配置更少，前端字段也更明确。
+- **Results Array Path**: `records`
+- **Content Field(s)**: `segment.content`
+- **Score Field**: `score`
+- **ID Field**: `segment.id`
+
+### GET 请求的简单搜索 API
+
+API 使用 `GET /search?q=xxx&limit=5`，返回 `{"data": [{"text": "...", "relevance": 0.8}]}`。
+
+- **API Base URL**: `https://my-search.com`
+- **Retrieval Endpoint**: `/search`
+- **Request Body Template**: `{"q": "{{ query }}", "limit": {{ top_k }}}`
+- **Results Array Path**: `data`
+- **Content Field(s)**: `text`
+- **Score Field**: `relevance`
+- 打开「高级检索设置」→ **HTTP Method**: `GET`，**Payload Mode**: `Query Params`
+
+## 排障
+
+1. 打开「高级连接设置」→ 开启 **Debug Mode**
+2. 检查日志中的最终 URL、method、payload 是否符合预期
+3. 检查响应中 results_path 指向的是否是数组
+4. 检查 content_fields、score_field、id_field 是否命中了真实字段
+5. 如果是内网 HTTPS 服务，确认是否需要关闭 Verify SSL

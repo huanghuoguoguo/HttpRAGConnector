@@ -10,16 +10,16 @@ metadata:
     zh_Hans: 通用 HTTP RAG 连接器，可对接任何提供 HTTP API 的知识库服务。通过定义请求模板和响应字段映射即可完成对接。
 spec:
   creation_schema:
-    # ── Connection ──
+    # ── Core Connection (always visible) ──
     - name: api_base_url
       label:
         en_US: API Base URL
         zh_Hans: API 基础地址
       description:
-        en_US: 'Base URL of the RAG service. Only fill the host/base prefix, not the full retrieval URL. Example for Dify: https://api.dify.ai/v1'
-        zh_Hans: 'RAG 服务的基础地址，只填基础地址，不要填完整检索 URL。按 Dify 示例可填 https://api.dify.ai/v1'
+        en_US: 'Base URL of the RAG service (host + prefix only, not the full retrieval URL). Example: https://your-rag-service.com/api/v1'
+        zh_Hans: 'RAG 服务的基础地址（只填域名和前缀，不要填完整检索 URL）。示例：https://your-rag-service.com/api/v1'
       type: string
-      default: https://api.dify.ai/v1
+      default: ''
       required: true
 
     - name: api_key
@@ -27,20 +27,9 @@ spec:
         en_US: API Key
         zh_Hans: API 密钥
       description:
-        en_US: 'API key used for authentication. It will be sent in the Authorization header.'
-        zh_Hans: '用于认证的 API 密钥。后端会把它放进 Authorization 请求头中。如果没有就不填。'
+        en_US: 'API key for authentication. Sent as Authorization: Bearer <key> by default. Leave empty if no auth is needed.'
+        zh_Hans: '用于认证的 API 密钥，默认以 Authorization: Bearer <key> 方式发送。不需要认证则留空。'
       type: password
-      required: flase
-
-    - name: auth_header_prefix
-      label:
-        en_US: Auth Header Prefix
-        zh_Hans: 认证头前缀
-      description:
-        en_US: 'Prefix before API key in Authorization header (default: Bearer)'
-        zh_Hans: 'Authorization 请求头中 API 密钥前的前缀（默认：Bearer）'
-      type: string
-      default: Bearer
       required: false
 
     - name: dataset_id
@@ -48,11 +37,113 @@ spec:
         en_US: Dataset ID
         zh_Hans: 数据集 ID
       description:
-        en_US: 'Dataset/knowledge base ID. If your endpoint or body contains {{ dataset_id }}, it will be substituted with this value.'
-        zh_Hans: '数据集/知识库 ID。如果你的接口路径或请求体里用了 {{ dataset_id }}，运行时会替换成这里的值。'
+        en_US: 'ID of the target knowledge base / dataset. Available as {{ dataset_id }} in endpoint paths and request templates. Leave empty if your API does not require it.'
+        zh_Hans: '目标知识库/数据集 ID。可在接口路径和请求模板中通过 {{ dataset_id }} 引用。如果你的 API 不需要则留空。'
       type: string
       default: ''
       required: false
+
+    # ── Advanced Connection (hidden by default) ──
+    - name: enable_advanced_connection
+      label:
+        en_US: Show Advanced Connection Settings
+        zh_Hans: 显示高级连接设置
+      description:
+        en_US: 'Show settings for custom auth headers, extra headers, SSL, timeout, and debug mode.'
+        zh_Hans: '展开自定义认证头、额外请求头、SSL 证书、超时时间、调试模式等设置。'
+      type: boolean
+      default: false
+      required: false
+
+    - name: auth_header_name
+      label:
+        en_US: Auth Header Name
+        zh_Hans: 认证头名称
+      description:
+        en_US: 'Header name for API key. Default: Authorization. Change to X-API-Key, api-key, etc. if your service requires it.'
+        zh_Hans: 'API Key 使用的请求头名称。默认 Authorization。如需改成 X-API-Key、api-key 等自定义头，在此修改。'
+      type: string
+      default: Authorization
+      required: false
+      show_if:
+        field: enable_advanced_connection
+        operator: eq
+        value: true
+
+    - name: auth_header_prefix
+      label:
+        en_US: Auth Header Prefix
+        zh_Hans: 认证头前缀
+      description:
+        en_US: 'Prefix before the API key value. Default: Bearer (i.e. "Authorization: Bearer <key>"). Leave empty for bare token.'
+        zh_Hans: 'API Key 前的前缀。默认 Bearer（即 "Authorization: Bearer <key>"）。如果服务要求裸 token 则留空。'
+      type: string
+      default: Bearer
+      required: false
+      show_if:
+        field: enable_advanced_connection
+        operator: eq
+        value: true
+
+    - name: extra_headers_template
+      label:
+        en_US: Extra Headers (JSON)
+        zh_Hans: 额外请求头 (JSON)
+      description:
+        en_US: 'JSON object of extra headers added to all requests. Supports {{ variable }} substitution. Example: {"X-Tenant-ID": "{{ dataset_id }}"}'
+        zh_Hans: '所有请求附加的额外请求头（JSON 对象），支持 {{ variable }} 替换。示例：{"X-Tenant-ID": "{{ dataset_id }}"}'
+      type: text
+      default: ''
+      required: false
+      show_if:
+        field: enable_advanced_connection
+        operator: eq
+        value: true
+
+    - name: verify_ssl
+      label:
+        en_US: Verify SSL
+        zh_Hans: 校验 SSL 证书
+      description:
+        en_US: 'Verify server SSL certificate. Disable only for trusted self-signed / internal services.'
+        zh_Hans: '是否校验服务端 SSL 证书。仅在连接可信的自签名或内网服务时才关闭。'
+      type: boolean
+      default: true
+      required: false
+      show_if:
+        field: enable_advanced_connection
+        operator: eq
+        value: true
+
+    - name: request_timeout_seconds
+      label:
+        en_US: Request Timeout (seconds)
+        zh_Hans: 请求超时 (秒)
+      description:
+        en_US: 'Timeout in seconds for HTTP requests. Default: 30.'
+        zh_Hans: 'HTTP 请求的超时时间（秒）。默认 30。'
+      type: integer
+      default: 30
+      required: false
+      show_if:
+        field: enable_advanced_connection
+        operator: eq
+        value: true
+
+    - name: debug_mode
+      label:
+        en_US: Debug Mode
+        zh_Hans: 调试模式
+      description:
+        en_US: 'Log sanitized request/response details for troubleshooting. Recommended when connecting a new service for the first time.'
+        zh_Hans: '输出脱敏后的请求和响应详情，便于排查问题。首次对接新服务时建议开启。'
+      type: boolean
+      default: false
+      required: false
+      show_if:
+        field: enable_advanced_connection
+        operator: eq
+        value: true
 
     # ── Ingestion (optional) ──
     - name: enable_ingestion
@@ -60,8 +151,8 @@ spec:
         en_US: Enable File Upload
         zh_Hans: 启用文件上传
       description:
-        en_US: 'Enable uploading files to the RAG service'
-        zh_Hans: '启用向 RAG 服务上传文件的功能'
+        en_US: 'Enable uploading files to the RAG service.'
+        zh_Hans: '启用向 RAG 服务上传文件的功能。'
       type: boolean
       default: false
       required: false
@@ -71,10 +162,10 @@ spec:
         en_US: Upload Endpoint
         zh_Hans: 上传接口路径
       description:
-        en_US: 'Upload API path only. Supports {{ dataset_id }}. Dify example: /datasets/{{ dataset_id }}/document/create-by-file'
-        zh_Hans: '只填写上传接口路径，支持 {{ dataset_id }}。Dify 示例：/datasets/{{ dataset_id }}/document/create-by-file'
+        en_US: 'Upload API path. Supports {{ dataset_id }}. Example: /datasets/{{ dataset_id }}/documents/upload'
+        zh_Hans: '上传接口路径，支持 {{ dataset_id }}。示例：/datasets/{{ dataset_id }}/documents/upload'
       type: string
-      default: /datasets/{{ dataset_id }}/document/create-by-file
+      default: ''
       required: false
       show_if:
         field: enable_ingestion
@@ -86,8 +177,8 @@ spec:
         en_US: File Field Name
         zh_Hans: 文件字段名
       description:
-        en_US: 'Multipart form field name for the file. Dify uses file.'
-        zh_Hans: '上传表单中文件字段的名称。Dify 默认使用 file。'
+        en_US: 'Multipart form field name for the uploaded file. Default: file.'
+        zh_Hans: '上传表单中文件字段的名称。默认 file。'
       type: string
       default: file
       required: false
@@ -98,19 +189,13 @@ spec:
 
     - name: ingest_extra_body
       label:
-        en_US: Upload Extra Data
-        zh_Hans: 上传附加数据
+        en_US: Upload Extra Data (JSON)
+        zh_Hans: 上传附加数据 (JSON)
       description:
-        en_US: 'Optional JSON data sent alongside the file as the "data" form field. Supports {{ variable }} substitution. Default value matches Dify upload API.'
-        zh_Hans: '上传文件时附带的 JSON 数据，会作为表单中的 "data" 字段发送，支持 {{ variable }} 替换。默认值按 Dify 上传接口填写。'
+        en_US: 'Optional JSON data sent alongside the file as the "data" form field. Supports {{ variable }} substitution.'
+        zh_Hans: '上传文件时附带的 JSON 数据，会作为表单中的 "data" 字段发送，支持 {{ variable }} 替换。'
       type: text
-      default: |
-        {
-          "indexing_technique": "high_quality",
-          "process_rule": {
-            "mode": "automatic"
-          }
-        }
+      default: ''
       required: false
       show_if:
         field: enable_ingestion
@@ -122,10 +207,10 @@ spec:
         en_US: Document ID Response Path
         zh_Hans: 文档 ID 响应路径
       description:
-        en_US: 'Dot-separated path used to extract the document ID from the upload response. Dify example: document.id'
-        zh_Hans: '上传成功后，从响应中提取文档 ID 的点分路径。Dify 示例：document.id'
+        en_US: 'Dot-separated path to extract the document ID from the upload response. Example: document.id'
+        zh_Hans: '上传成功后从响应中提取文档 ID 的点分路径。示例：document.id'
       type: string
-      default: document.id
+      default: ''
       required: false
       show_if:
         field: enable_ingestion
@@ -138,8 +223,8 @@ spec:
         en_US: Enable Document Deletion
         zh_Hans: 启用文档删除
       description:
-        en_US: 'Enable deleting documents from the RAG service'
-        zh_Hans: '启用从 RAG 服务中删除文档的功能'
+        en_US: 'Enable deleting documents from the RAG service.'
+        zh_Hans: '启用从 RAG 服务中删除文档的功能。'
       type: boolean
       default: false
       required: false
@@ -149,10 +234,10 @@ spec:
         en_US: Delete Endpoint
         zh_Hans: 删除接口路径
       description:
-        en_US: 'Delete API path only. Supports {{ document_id }} and {{ dataset_id }}. Dify example: /datasets/{{ dataset_id }}/documents/{{ document_id }}'
-        zh_Hans: '只填写删除接口路径，支持 {{ document_id }} 和 {{ dataset_id }}。Dify 示例：/datasets/{{ dataset_id }}/documents/{{ document_id }}'
+        en_US: 'Delete API path. Supports {{ document_id }} and {{ dataset_id }}. Example: /datasets/{{ dataset_id }}/documents/{{ document_id }}'
+        zh_Hans: '删除接口路径，支持 {{ document_id }} 和 {{ dataset_id }}。示例：/datasets/{{ dataset_id }}/documents/{{ document_id }}'
       type: string
-      default: /datasets/{{ dataset_id }}/documents/{{ document_id }}
+      default: ''
       required: false
       show_if:
         field: enable_deletion
@@ -164,8 +249,8 @@ spec:
         en_US: Delete HTTP Method
         zh_Hans: 删除请求方法
       description:
-        en_US: 'HTTP method for deletion. Dify uses DELETE for document removal.'
-        zh_Hans: '删除请求使用的 HTTP 方法。Dify 删除文档时使用 DELETE。'
+        en_US: 'HTTP method for deletion.'
+        zh_Hans: '删除请求使用的 HTTP 方法。'
       type: select
       default: DELETE
       options:
@@ -185,11 +270,11 @@ spec:
 
     - name: delete_body_template
       label:
-        en_US: Delete Request Body Template
-        zh_Hans: 删除请求体模板
+        en_US: Delete Request Body (JSON)
+        zh_Hans: 删除请求体 (JSON)
       description:
-        en_US: 'Optional JSON body for deletion. Supports {{ document_id }} and {{ dataset_id }}. Dify document deletion sends no request body, so the default is empty. Only fill this when your target service requires a JSON body.'
-        zh_Hans: '删除请求体模板，可使用 {{ document_id }} 和 {{ dataset_id }}。Dify 删除文档时本身不发送请求体，所以默认留空。只有目标服务明确要求 JSON 请求体时才需要填写。'
+        en_US: 'Optional JSON body for deletion. Supports {{ document_id }} and {{ dataset_id }}. Leave empty if the delete API does not require a body.'
+        zh_Hans: '删除请求的 JSON 请求体模板，支持 {{ document_id }} 和 {{ dataset_id }}。如果删除接口不需要请求体则留空。'
       type: text
       default: ''
       required: false
@@ -199,59 +284,42 @@ spec:
         value: true
 
   retrieval_schema:
+    # ── Core Retrieval (always visible) ──
     - name: retrieve_endpoint
       label:
         en_US: Retrieval Endpoint
         zh_Hans: 检索接口路径
       description:
-        en_US: 'Retrieval API path only. Final URL = API Base URL + this path. Supports {{ dataset_id }}. Dify example: /datasets/{{ dataset_id }}/retrieve'
-        zh_Hans: '只填写检索接口路径。最终请求地址 = API Base URL + 这里的路径。支持 {{ dataset_id }}。Dify 示例：/datasets/{{ dataset_id }}/retrieve'
+        en_US: 'Retrieval API path (not full URL). Final URL = API Base URL + this path. Supports {{ dataset_id }}. Example: /datasets/{{ dataset_id }}/search'
+        zh_Hans: '检索接口路径（不是完整 URL）。最终地址 = API Base URL + 这里的路径。支持 {{ dataset_id }}。示例：/datasets/{{ dataset_id }}/search'
       type: string
-      default: /datasets/{{ dataset_id }}/retrieve
+      default: ''
       required: true
 
     - name: retrieve_body_template
       label:
-        en_US: Retrieval Request Body Template
-        zh_Hans: 检索请求体模板
+        en_US: Request Body Template (JSON)
+        zh_Hans: 请求体模板 (JSON)
       description:
         en_US: |
-          JSON template for the retrieval request body. Use {{ variable }} for dynamic values.
-          query/top_k/similarity_threshold will be substituted at runtime.
-          Default example is compatible with Dify Dataset retrieval API.
+          JSON template for the retrieval request. Supports {{ query }}, {{ top_k }}, {{ similarity_threshold }}, {{ dataset_id }}.
+          Leave empty to use the built-in default: {"query": "{{ query }}", "top_k": {{ top_k }}}.
         zh_Hans: |
-          检索请求的 JSON 模板，使用 {{ variable }} 插入动态值。
-          运行时会自动替换 query、top_k、similarity_threshold、dataset_id。
-          默认值已按 Dify Dataset 检索接口给出，可直接作为示例修改。
+          检索请求的 JSON 模板，支持 {{ query }}、{{ top_k }}、{{ similarity_threshold }}、{{ dataset_id }} 变量。
+          留空则使用内置默认值：{"query": "{{ query }}", "top_k": {{ top_k }}}。
       type: text
-      default: |
-        {
-          "query": "{{ query }}",
-          "retrieval_model": {
-            "search_method": "semantic_search",
-            "reranking_enable": false,
-            "reranking_mode": null,
-            "reranking_model": {
-              "reranking_provider_name": "",
-              "reranking_model_name": ""
-            },
-            "weights": null,
-            "top_k": {{ top_k }},
-            "score_threshold_enabled": true,
-            "score_threshold": {{ similarity_threshold }}
-          }
-        }
-      required: true
+      default: ''
+      required: false
 
     - name: retrieve_results_path
       label:
         en_US: Results Array Path
         zh_Hans: 结果数组路径
       description:
-        en_US: 'Dot-separated path to the result array in the response JSON. Dify example: records'
-        zh_Hans: '响应 JSON 中结果数组的点分路径。Dify 示例：records'
+        en_US: 'Dot-separated path to the results array in the response JSON. Example: results, data.records, hits.hits'
+        zh_Hans: '响应 JSON 中结果数组的点分路径。示例：results、data.records、hits.hits'
       type: string
-      default: records
+      default: results
       required: true
 
     - name: retrieve_content_fields
@@ -259,10 +327,10 @@ spec:
         en_US: Content Field(s)
         zh_Hans: 内容字段
       description:
-        en_US: 'Field name(s) used as the final chunk text. Comma-separated for multiple fields. Supports dot notation. Dify example: segment.content'
-        zh_Hans: '结果中会被当成最终知识文本的字段名，多个字段可用逗号分隔，支持点分路径。Dify 示例：segment.content'
+        en_US: 'Field path(s) for the text content in each result. Supports dot notation. Comma-separated for multiple fields. Example: content, text, segment.content'
+        zh_Hans: '每条结果中文本内容的字段路径，支持点分路径。多个字段可用逗号分隔。示例：content、text、segment.content'
       type: string
-      default: segment.content
+      default: content
       required: true
 
     - name: retrieve_score_field
@@ -270,8 +338,8 @@ spec:
         en_US: Score Field
         zh_Hans: 分数字段
       description:
-        en_US: 'Field name for similarity/relevance score in each result. Supports dot notation. Dify example: score. Leave empty if unavailable.'
-        zh_Hans: '每条结果中的相似度/相关度分数字段，支持点分路径。Dify 示例：score。没有就留空。'
+        en_US: 'Field path for the relevance score. Leave empty if not available. Example: score, _score'
+        zh_Hans: '每条结果中的相关度分数字段。没有则留空。示例：score、_score'
       type: string
       default: score
       required: false
@@ -281,10 +349,10 @@ spec:
         en_US: ID Field
         zh_Hans: ID 字段
       description:
-        en_US: 'Field name for the unique result ID. Supports dot notation. Dify example: segment.id. Leave empty if unavailable.'
-        zh_Hans: '每条结果唯一 ID 的字段名，支持点分路径。Dify 示例：segment.id。没有就留空。'
+        en_US: 'Field path for the unique result ID. Leave empty if not available. Example: id, _id, segment.id'
+        zh_Hans: '每条结果的唯一 ID 字段。没有则留空。示例：id、_id、segment.id'
       type: string
-      default: segment.id
+      default: id
       required: false
 
     - name: top_k
@@ -292,8 +360,8 @@ spec:
         en_US: Top K
         zh_Hans: 返回数量
       description:
-        en_US: 'Maximum number of results to return (available as {{ top_k }} in template)'
-        zh_Hans: '最多返回的结果数量（可在模板中通过 {{ top_k }} 引用）'
+        en_US: 'Maximum number of results to return (available as {{ top_k }} in template).'
+        zh_Hans: '最多返回的结果数量（可在模板中通过 {{ top_k }} 引用）。'
       type: integer
       default: 5
       required: false
@@ -303,11 +371,117 @@ spec:
         en_US: Similarity Threshold
         zh_Hans: 相似度阈值
       description:
-        en_US: 'Minimum similarity score 0-1 (available as {{ similarity_threshold }} in template)'
-        zh_Hans: '最低相似度分数 0-1（可在模板中通过 {{ similarity_threshold }} 引用）'
+        en_US: 'Minimum similarity score 0-1 (available as {{ similarity_threshold }} in template). Only effective if your API uses this parameter.'
+        zh_Hans: '最低相似度分数 0-1（可在模板中通过 {{ similarity_threshold }} 引用）。仅当你的 API 使用该参数时才有效。'
       type: float
       default: 0.2
       required: false
+
+    # ── Advanced Retrieval (hidden by default) ──
+    - name: enable_advanced_retrieval
+      label:
+        en_US: Show Advanced Retrieval Settings
+        zh_Hans: 显示高级检索设置
+      description:
+        en_US: 'Show settings for HTTP method, payload mode, metadata mapping, and empty content handling.'
+        zh_Hans: '展开 HTTP 方法、请求发送方式、元数据映射、空内容处理等设置。'
+      type: boolean
+      default: false
+      required: false
+
+    - name: retrieve_method
+      label:
+        en_US: HTTP Method
+        zh_Hans: HTTP 方法
+      description:
+        en_US: 'HTTP method for retrieval. Default: POST.'
+        zh_Hans: '检索请求的 HTTP 方法。默认 POST。'
+      type: select
+      default: POST
+      options:
+        - name: POST
+          label:
+            en_US: POST
+            zh_Hans: POST
+        - name: GET
+          label:
+            en_US: GET
+            zh_Hans: GET
+        - name: PUT
+          label:
+            en_US: PUT
+            zh_Hans: PUT
+        - name: PATCH
+          label:
+            en_US: PATCH
+            zh_Hans: PATCH
+        - name: DELETE
+          label:
+            en_US: DELETE
+            zh_Hans: DELETE
+      required: false
+      show_if:
+        field: enable_advanced_retrieval
+        operator: eq
+        value: true
+
+    - name: retrieve_payload_mode
+      label:
+        en_US: Payload Mode
+        zh_Hans: 请求发送方式
+      description:
+        en_US: 'How the request template is sent. Default: JSON body. Change to Form or Query for non-JSON APIs.'
+        zh_Hans: '请求模板的发送方式。默认 JSON 请求体。非 JSON 接口可改为表单或查询参数。'
+      type: select
+      default: json
+      options:
+        - name: json
+          label:
+            en_US: JSON Body
+            zh_Hans: JSON 请求体
+        - name: form
+          label:
+            en_US: Form Fields
+            zh_Hans: 表单字段
+        - name: query
+          label:
+            en_US: Query Params
+            zh_Hans: 查询参数
+      required: false
+      show_if:
+        field: enable_advanced_retrieval
+        operator: eq
+        value: true
+
+    - name: retrieve_metadata_fields
+      label:
+        en_US: Metadata Field Mapping
+        zh_Hans: 元数据字段映射
+      description:
+        en_US: 'Extra fields to include in result metadata. Format: key=path (comma or newline separated). Example: source=document.name,url=document.url'
+        zh_Hans: '需要一并返回的额外字段。格式：key=path，多个用逗号或换行分隔。示例：source=document.name,url=document.url'
+      type: text
+      default: ''
+      required: false
+      show_if:
+        field: enable_advanced_retrieval
+        operator: eq
+        value: true
+
+    - name: retrieve_skip_empty_content
+      label:
+        en_US: Skip Empty Content
+        zh_Hans: 跳过空内容结果
+      description:
+        en_US: 'Skip results when all content fields are empty. Default: enabled.'
+        zh_Hans: '当内容字段全部为空时自动跳过该条结果。默认开启。'
+      type: boolean
+      default: true
+      required: false
+      show_if:
+        field: enable_advanced_retrieval
+        operator: eq
+        value: true
 
 execution:
   python:
