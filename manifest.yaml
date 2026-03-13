@@ -4,7 +4,7 @@ metadata:
   author: huanghuoguoguo
   name: HttpRAGConnector
   repository: 'https://github.com/huanghuoguoguo/HttpRAGConnector'
-  version: 0.1.0
+  version: 0.1.1
   description:
     en_US: Generic HTTP RAG connector for any RAG service with HTTP API. Define request templates and response mappings to connect to any knowledge base.
     zh_Hans: 通用 HTTP RAG 连接器，可对接大部分 HTTP API 的知识库服务。通过定义请求模板和响应字段映射即可完成对接。详细请阅读readme

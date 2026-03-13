@@ -1,45 +1,45 @@
 # HttpRAGConnector
 
-通用 HTTP RAG 连接器。把任何提供 HTTP API 的知识库服务接入 LangBot。
+Generic HTTP RAG connector. Connect any knowledge base service with an HTTP API to LangBot.
 
-如果你接的是 Dify、RAGFlow、FastGPT 这类常见平台，**优先使用它们各自的专用插件**。只有在没有专用插件，或者你要接一个自定义 HTTP 检索接口时，再使用这个插件。
+If you are connecting to common platforms like Dify, RAGFlow, or FastGPT, **use their dedicated plugins first**. Use this plugin only when no dedicated plugin is available, or when you need to connect a custom HTTP retrieval endpoint.
 
-## 快速开始
+## Quick Start
 
-最少只需要填 **3 个字段** 就能跑起来：
+You only need to fill in **3 fields** to get started:
 
-| 字段 | 填什么 | 示例 |
-|------|--------|------|
-| API Base URL | 你的 RAG 服务基础地址 | `https://your-rag.com/api/v1` |
-| Retrieval Endpoint | 检索接口路径 | `/search` |
-| API Key | 认证密钥（没有就留空） | `sk-xxx` |
+| Field | What to fill | Example |
+|-------|-------------|---------|
+| API Base URL | Base URL of your RAG service | `https://your-rag.com/api/v1` |
+| Retrieval Endpoint | Path to the retrieval API | `/search` |
+| API Key | Authentication key (leave empty if not needed) | `sk-xxx` |
 
-其余字段都有合理默认值：
+All other fields have sensible defaults:
 
-- **Request Body Template** 留空 → 自动发送 `{"query": "用户问题", "top_k": 5}`
-- **Results Array Path** 默认 `results`
-- **Content Field(s)** 默认 `content`
-- **Score Field** 默认 `score`
-- **ID Field** 默认 `id`
+- **Request Body Template** left empty → automatically sends `{"query": "user question", "top_k": 5}`
+- **Results Array Path** defaults to `results`
+- **Content Field(s)** defaults to `content`
+- **Score Field** defaults to `score`
+- **ID Field** defaults to `id`
 
-如果你的 API 返回格式刚好匹配这些默认值，不需要改任何东西，直接就能用。
+If your API response format matches these defaults, everything works out of the box.
 
-## 它是怎么工作的
+## How It Works
 
-你告诉插件两件事：
+You tell the plugin two things:
 
-1. **请求**：检索时应该请求哪个 HTTP 接口，请求体长什么样
-2. **响应**：接口返回后，结果数组、文本内容、分数、ID 分别在哪个字段里
+1. **Request**: Which HTTP endpoint to call and what the request body looks like
+2. **Response**: Where to find the results array, text content, score, and ID in the response
 
-插件会自动把用户问题和检索参数填进请求里，再把响应转成 LangBot 可用的知识片段。
+The plugin automatically fills in the user's query and retrieval parameters, then converts the response into knowledge segments usable by LangBot.
 
-## 字段说明
+## Field Reference
 
-### 创建时要填的字段
+### Creation Settings
 
-#### API Base URL（必填）
+#### API Base URL (required)
 
-目标服务的基础地址，只填域名和路径前缀，不包含具体接口路径。
+Base URL of the target service. Only the domain and path prefix — do not include specific endpoint paths.
 
 ```
 https://your-rag-service.com/api/v1
@@ -47,17 +47,17 @@ https://your-rag-service.com/api/v1
 
 #### API Key
 
-认证密钥。默认以 `Authorization: Bearer <key>` 方式发送。不需要认证则留空。
+Authentication key. Sent as `Authorization: Bearer <key>` by default. Leave empty if no authentication is needed.
 
 #### Dataset ID
 
-数据集/知识库 ID。如果你的接口路径或请求体里用了 `{{ dataset_id }}`，运行时会替换成这里的值。不需要则留空。
+Dataset/knowledge base ID. If your endpoint path or request body uses `{{ dataset_id }}`, it will be replaced with this value at runtime. Leave empty if not needed.
 
-### 检索设置
+### Retrieval Settings
 
-#### Retrieval Endpoint（必填）
+#### Retrieval Endpoint (required)
 
-检索接口路径。最终请求地址 = API Base URL + 这里的路径。支持 `{{ dataset_id }}` 变量。
+Path to the retrieval endpoint. The final request URL = API Base URL + this path. Supports the `{{ dataset_id }}` variable.
 
 ```
 /search
@@ -67,18 +67,18 @@ https://your-rag-service.com/api/v1
 
 #### Request Body Template
 
-检索请求的 JSON 模板。支持以下变量：
+JSON template for the retrieval request. Supports the following variables:
 
-| 变量 | 来源 |
-|------|------|
-| `{{ query }}` | 用户当前问题 |
-| `{{ top_k }}` | 检索设置里的返回数量 |
-| `{{ similarity_threshold }}` | 检索设置里的相似度阈值 |
-| `{{ dataset_id }}` | 创建时填写的 Dataset ID |
+| Variable | Source |
+|----------|--------|
+| `{{ query }}` | User's current question |
+| `{{ top_k }}` | Number of results from retrieval settings |
+| `{{ similarity_threshold }}` | Similarity threshold from retrieval settings |
+| `{{ dataset_id }}` | Dataset ID from creation settings |
 
-**留空则自动使用**：`{"query": "{{ query }}", "top_k": {{ top_k }}}`
+**If left empty, defaults to**: `{"query": "{{ query }}", "top_k": {{ top_k }}}`
 
-自定义示例：
+Custom example:
 
 ```json
 {
@@ -89,23 +89,23 @@ https://your-rag-service.com/api/v1
 }
 ```
 
-注意：字符串变量要加引号（`"{{ query }}"`），数字变量不加引号（`{{ top_k }}`）。
+Note: String variables need quotes (`"{{ query }}"`), numeric variables do not (`{{ top_k }}`).
 
-#### Results Array Path（必填）
+#### Results Array Path (required)
 
-响应 JSON 中结果数组的位置。用点分路径。
+Location of the results array in the response JSON. Use dot-separated paths.
 
-| 你的响应结构 | 应该填 |
+| Your response structure | Value to enter |
 |---|---|
 | `{"results": [...]}` | `results` |
 | `{"data": {"records": [...]}}` | `data.records` |
 | `{"hits": {"hits": [...]}}` | `hits.hits` |
 
-#### Content Field(s)（必填）
+#### Content Field(s) (required)
 
-每条结果中文本内容所在的字段。支持点分路径。多个字段用逗号分隔，会自动拼接。
+Field(s) containing the text content in each result. Supports dot-separated paths. Multiple fields can be separated by commas and will be concatenated.
 
-| 你的结果结构 | 应该填 |
+| Your result structure | Value to enter |
 |---|---|
 | `{"content": "..."}` | `content` |
 | `{"segment": {"content": "..."}}` | `segment.content` |
@@ -113,56 +113,56 @@ https://your-rag-service.com/api/v1
 
 #### Score Field / ID Field
 
-分数和 ID 字段。留空表示不使用。
+Fields for score and ID. Leave empty if not applicable.
 
 #### Top K / Similarity Threshold
 
-返回数量和相似度阈值。会替换模板中的 `{{ top_k }}` 和 `{{ similarity_threshold }}`。
+Number of results and similarity threshold. These replace `{{ top_k }}` and `{{ similarity_threshold }}` in the template.
 
-### 高级连接设置
+### Advanced Connection Settings
 
-点击「显示高级连接设置」展开。大部分情况不需要修改。
+Click "Show Advanced Connection Settings" to expand. In most cases, no changes are needed.
 
-| 字段 | 用途 | 什么时候改 |
-|------|------|-----------|
-| Auth Header Name | 认证头名称（默认 `Authorization`） | 服务要求 `X-API-Key` 等自定义头 |
-| Auth Header Prefix | 认证头前缀（默认 `Bearer`） | 服务要求裸 token（留空）或其他前缀 |
-| Extra Headers (JSON) | 附加请求头 | 多租户、版本头、自定义 trace header |
-| Verify SSL | SSL 证书校验（默认开启） | 内网自签名证书 |
-| Request Timeout | 请求超时（默认 30s） | 服务响应慢 |
-| Debug Mode | 调试日志（默认关闭） | 首次对接或排查问题 |
+| Field | Purpose | When to change |
+|-------|---------|----------------|
+| Auth Header Name | Auth header name (default: `Authorization`) | Service requires `X-API-Key` or other custom headers |
+| Auth Header Prefix | Auth header prefix (default: `Bearer`) | Service requires a bare token (leave empty) or other prefix |
+| Extra Headers (JSON) | Additional request headers | Multi-tenancy, version headers, custom trace headers |
+| Verify SSL | SSL certificate verification (default: on) | Self-signed certificates on internal networks |
+| Request Timeout | Request timeout (default: 30s) | Slow-responding services |
+| Debug Mode | Debug logging (default: off) | Initial integration or troubleshooting |
 
-### 高级检索设置
+### Advanced Retrieval Settings
 
-点击「显示高级检索设置」展开。大部分情况不需要修改。
+Click "Show Advanced Retrieval Settings" to expand. In most cases, no changes are needed.
 
-| 字段 | 用途 | 什么时候改 |
-|------|------|-----------|
-| HTTP Method | 检索请求方法（默认 `POST`） | API 要求 `GET` 等其他方法 |
-| Payload Mode | 请求发送方式（默认 JSON body） | API 要求表单提交或查询参数 |
-| Metadata Field Mapping | 额外返回字段 | 需要来源、页码、URL 等信息 |
-| Skip Empty Content | 跳过空内容（默认开启） | 所有场景建议保持开启 |
+| Field | Purpose | When to change |
+|-------|---------|----------------|
+| HTTP Method | Retrieval request method (default: `POST`) | API requires `GET` or other methods |
+| Payload Mode | Request delivery method (default: JSON body) | API requires form submission or query params |
+| Metadata Field Mapping | Additional return fields | Need source, page number, URL, etc. |
+| Skip Empty Content | Skip empty content (default: on) | Recommended to keep enabled for all scenarios |
 
-### 文件上传 / 文档删除
+### File Upload / Document Deletion
 
-打开对应开关后才需要填写，按提示填入你的 API 对应信息即可。
+Enable the corresponding toggles first, then fill in your API information as prompted.
 
-## 常见场景配置示例
+## Example Configurations
 
-### 最简单的 API
+### Simplest API
 
-API 接收 `POST {"query": "...", "top_k": N}`，返回 `{"results": [{"content": "...", "score": 0.9, "id": "1"}]}`。
+API accepts `POST {"query": "...", "top_k": N}` and returns `{"results": [{"content": "...", "score": 0.9, "id": "1"}]}`.
 
-只需填：
+Just fill in:
 - **API Base URL**: `https://my-rag.com`
 - **Retrieval Endpoint**: `/search`
-- 其余全部留空/默认
+- Leave everything else empty/default
 
 ### Dify
 
 - **API Base URL**: `https://api.dify.ai/v1`
-- **API Key**: 你的 Dify Dataset API Key
-- **Dataset ID**: Dify 控制台中的数据集 ID
+- **API Key**: Your Dify Dataset API Key
+- **Dataset ID**: Dataset ID from the Dify console
 - **Retrieval Endpoint**: `/datasets/{{ dataset_id }}/retrieve`
 - **Request Body Template**:
 
@@ -190,9 +190,9 @@ API 接收 `POST {"query": "...", "top_k": N}`，返回 `{"results": [{"content"
 - **Score Field**: `score`
 - **ID Field**: `segment.id`
 
-### GET 请求的简单搜索 API
+### GET Request Search API
 
-API 使用 `GET /search?q=xxx&limit=5`，返回 `{"data": [{"text": "...", "relevance": 0.8}]}`。
+API uses `GET /search?q=xxx&limit=5` and returns `{"data": [{"text": "...", "relevance": 0.8}]}`.
 
 - **API Base URL**: `https://my-search.com`
 - **Retrieval Endpoint**: `/search`
@@ -200,12 +200,12 @@ API 使用 `GET /search?q=xxx&limit=5`，返回 `{"data": [{"text": "...", "rele
 - **Results Array Path**: `data`
 - **Content Field(s)**: `text`
 - **Score Field**: `relevance`
-- 打开「高级检索设置」→ **HTTP Method**: `GET`，**Payload Mode**: `Query Params`
+- Open "Advanced Retrieval Settings" → **HTTP Method**: `GET`, **Payload Mode**: `Query Params`
 
-## 排障
+## Troubleshooting
 
-1. 打开「高级连接设置」→ 开启 **Debug Mode**
-2. 检查日志中的最终 URL、method、payload 是否符合预期
-3. 检查响应中 results_path 指向的是否是数组
-4. 检查 content_fields、score_field、id_field 是否命中了真实字段
-5. 如果是内网 HTTPS 服务，确认是否需要关闭 Verify SSL
+1. Open "Advanced Connection Settings" → enable **Debug Mode**
+2. Check that the final URL, method, and payload in the logs match your expectations
+3. Verify that the results_path points to an array in the response
+4. Verify that content_fields, score_field, and id_field match the actual field names
+5. For internal HTTPS services, check whether you need to disable Verify SSL
