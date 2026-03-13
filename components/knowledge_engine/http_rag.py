@@ -155,12 +155,12 @@ class HttpRag(KnowledgeEngine):
         retrieval = context.retrieval_settings
 
         api_base_url = config.get("api_base_url", "").rstrip("/")
-        endpoint = config.get("retrieve_endpoint", "")
-        body_template = config.get("retrieve_body_template", "")
-        results_path = config.get("retrieve_results_path", "")
-        content_fields_raw = config.get("retrieve_content_fields", "content")
-        score_field = config.get("retrieve_score_field", "")
-        id_field = config.get("retrieve_id_field", "")
+        endpoint = retrieval.get("retrieve_endpoint", "")
+        body_template = retrieval.get("retrieve_body_template", "")
+        results_path = retrieval.get("retrieve_results_path", "")
+        content_fields_raw = retrieval.get("retrieve_content_fields", "content")
+        score_field = retrieval.get("retrieve_score_field", "")
+        id_field = retrieval.get("retrieve_id_field", "")
 
         if not api_base_url or not endpoint or not body_template:
             logger.error("[HttpRAG] Missing required retrieval configuration")

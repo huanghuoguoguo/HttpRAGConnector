@@ -61,6 +61,8 @@
 
 ### 创建时要填的字段
 
+注意：从当前版本开始，`Retrieval Endpoint`、`Retrieval Request Body Template`、`Results Array Path`、`Content Field(s)`、`Score Field`、`ID Field` 已移动到检索设置，不再属于创建时固定参数。
+
 #### API Base URL
 
 - 填什么：目标服务的基础地址，不带最后的具体接口路径
@@ -210,7 +212,8 @@
 #### Delete Request Body Template
 
 - Dify 示例：留空
-- 程序怎么用：有些服务删除时需要 JSON 请求体，这里就填模板；不需要就留空
+- 原因：Dify 的真实删除接口是 `DELETE /datasets/{dataset_id}/documents/{document_id}`，不带请求体
+- 程序怎么用：有些服务删除时需要 JSON 请求体，这里就填模板；像 Dify 这种不需要请求体的就留空
 
 ## 变量说明
 

@@ -43,95 +43,6 @@ spec:
       default: Bearer
       required: false
 
-    # ── Retrieval ──
-    - name: retrieve_endpoint
-      label:
-        en_US: Retrieval Endpoint
-        zh_Hans: 检索接口路径
-      description:
-        en_US: 'Retrieval API path only. Final URL = API Base URL + this path. Supports {{ dataset_id }}. Dify example: /datasets/{{ dataset_id }}/retrieve'
-        zh_Hans: '只填写检索接口路径。最终请求地址 = API Base URL + 这里的路径。支持 {{ dataset_id }}。Dify 示例：/datasets/{{ dataset_id }}/retrieve'
-      type: string
-      default: /datasets/{{ dataset_id }}/retrieve
-      required: true
-
-    - name: retrieve_body_template
-      label:
-        en_US: Retrieval Request Body Template
-        zh_Hans: 检索请求体模板
-      description:
-        en_US: |
-          JSON template for the retrieval request body. Use {{ variable }} for dynamic values.
-          query/top_k/similarity_threshold will be substituted at runtime.
-          Default example is compatible with Dify Dataset retrieval API.
-        zh_Hans: |
-          检索请求的 JSON 模板，使用 {{ variable }} 插入动态值。
-          运行时会自动替换 query、top_k、similarity_threshold、dataset_id。
-          默认值已按 Dify Dataset 检索接口给出，可直接作为示例修改。
-      type: text
-      default: |
-        {
-          "query": "{{ query }}",
-          "retrieval_model": {
-            "search_method": "semantic_search",
-            "reranking_enable": false,
-            "reranking_mode": null,
-            "reranking_model": {
-              "reranking_provider_name": "",
-              "reranking_model_name": ""
-            },
-            "weights": null,
-            "top_k": {{ top_k }},
-            "score_threshold_enabled": true,
-            "score_threshold": {{ similarity_threshold }}
-          }
-        }
-      required: true
-
-    - name: retrieve_results_path
-      label:
-        en_US: Results Array Path
-        zh_Hans: 结果数组路径
-      description:
-        en_US: 'Dot-separated path to the result array in the response JSON. Dify example: records'
-        zh_Hans: '响应 JSON 中结果数组的点分路径。Dify 示例：records'
-      type: string
-      default: records
-      required: true
-
-    - name: retrieve_content_fields
-      label:
-        en_US: Content Field(s)
-        zh_Hans: 内容字段
-      description:
-        en_US: 'Field name(s) used as the final chunk text. Comma-separated for multiple fields. Supports dot notation. Dify example: segment.content'
-        zh_Hans: '结果中会被当成最终知识文本的字段名，多个字段可用逗号分隔，支持点分路径。Dify 示例：segment.content'
-      type: string
-      default: segment.content
-      required: true
-
-    - name: retrieve_score_field
-      label:
-        en_US: Score Field
-        zh_Hans: 分数字段
-      description:
-        en_US: 'Field name for similarity/relevance score in each result. Supports dot notation. Dify example: score. Leave empty if unavailable.'
-        zh_Hans: '每条结果中的相似度/相关度分数字段，支持点分路径。Dify 示例：score。没有就留空。'
-      type: string
-      default: score
-      required: false
-
-    - name: retrieve_id_field
-      label:
-        en_US: ID Field
-        zh_Hans: ID 字段
-      description:
-        en_US: 'Field name for the unique result ID. Supports dot notation. Dify example: segment.id. Leave empty if unavailable.'
-        zh_Hans: '每条结果唯一 ID 的字段名，支持点分路径。Dify 示例：segment.id。没有就留空。'
-      type: string
-      default: segment.id
-      required: false
-
     - name: dataset_id
       label:
         en_US: Dataset ID
@@ -253,8 +164,8 @@ spec:
         en_US: Delete HTTP Method
         zh_Hans: 删除请求方法
       description:
-        en_US: 'HTTP method for deletion'
-        zh_Hans: '删除请求使用的 HTTP 方法'
+        en_US: 'HTTP method for deletion. Dify uses DELETE for document removal.'
+        zh_Hans: '删除请求使用的 HTTP 方法。Dify 删除文档时使用 DELETE。'
       type: select
       default: DELETE
       options:
@@ -277,8 +188,8 @@ spec:
         en_US: Delete Request Body Template
         zh_Hans: 删除请求体模板
       description:
-        en_US: 'Optional JSON body for deletion. Supports {{ document_id }} and {{ dataset_id }}. Leave empty if the delete API does not need a request body.'
-        zh_Hans: '删除请求体模板，可使用 {{ document_id }} 和 {{ dataset_id }}。如果删除接口本身不需要请求体，就留空。'
+        en_US: 'Optional JSON body for deletion. Supports {{ document_id }} and {{ dataset_id }}. Dify document deletion sends no request body, so the default is empty. Only fill this when your target service requires a JSON body.'
+        zh_Hans: '删除请求体模板，可使用 {{ document_id }} 和 {{ dataset_id }}。Dify 删除文档时本身不发送请求体，所以默认留空。只有目标服务明确要求 JSON 请求体时才需要填写。'
       type: text
       default: ''
       required: false
@@ -288,6 +199,94 @@ spec:
         value: true
 
   retrieval_schema:
+    - name: retrieve_endpoint
+      label:
+        en_US: Retrieval Endpoint
+        zh_Hans: 检索接口路径
+      description:
+        en_US: 'Retrieval API path only. Final URL = API Base URL + this path. Supports {{ dataset_id }}. Dify example: /datasets/{{ dataset_id }}/retrieve'
+        zh_Hans: '只填写检索接口路径。最终请求地址 = API Base URL + 这里的路径。支持 {{ dataset_id }}。Dify 示例：/datasets/{{ dataset_id }}/retrieve'
+      type: string
+      default: /datasets/{{ dataset_id }}/retrieve
+      required: true
+
+    - name: retrieve_body_template
+      label:
+        en_US: Retrieval Request Body Template
+        zh_Hans: 检索请求体模板
+      description:
+        en_US: |
+          JSON template for the retrieval request body. Use {{ variable }} for dynamic values.
+          query/top_k/similarity_threshold will be substituted at runtime.
+          Default example is compatible with Dify Dataset retrieval API.
+        zh_Hans: |
+          检索请求的 JSON 模板，使用 {{ variable }} 插入动态值。
+          运行时会自动替换 query、top_k、similarity_threshold、dataset_id。
+          默认值已按 Dify Dataset 检索接口给出，可直接作为示例修改。
+      type: text
+      default: |
+        {
+          "query": "{{ query }}",
+          "retrieval_model": {
+            "search_method": "semantic_search",
+            "reranking_enable": false,
+            "reranking_mode": null,
+            "reranking_model": {
+              "reranking_provider_name": "",
+              "reranking_model_name": ""
+            },
+            "weights": null,
+            "top_k": {{ top_k }},
+            "score_threshold_enabled": true,
+            "score_threshold": {{ similarity_threshold }}
+          }
+        }
+      required: true
+
+    - name: retrieve_results_path
+      label:
+        en_US: Results Array Path
+        zh_Hans: 结果数组路径
+      description:
+        en_US: 'Dot-separated path to the result array in the response JSON. Dify example: records'
+        zh_Hans: '响应 JSON 中结果数组的点分路径。Dify 示例：records'
+      type: string
+      default: records
+      required: true
+
+    - name: retrieve_content_fields
+      label:
+        en_US: Content Field(s)
+        zh_Hans: 内容字段
+      description:
+        en_US: 'Field name(s) used as the final chunk text. Comma-separated for multiple fields. Supports dot notation. Dify example: segment.content'
+        zh_Hans: '结果中会被当成最终知识文本的字段名，多个字段可用逗号分隔，支持点分路径。Dify 示例：segment.content'
+      type: string
+      default: segment.content
+      required: true
+
+    - name: retrieve_score_field
+      label:
+        en_US: Score Field
+        zh_Hans: 分数字段
+      description:
+        en_US: 'Field name for similarity/relevance score in each result. Supports dot notation. Dify example: score. Leave empty if unavailable.'
+        zh_Hans: '每条结果中的相似度/相关度分数字段，支持点分路径。Dify 示例：score。没有就留空。'
+      type: string
+      default: score
+      required: false
+
+    - name: retrieve_id_field
+      label:
+        en_US: ID Field
+        zh_Hans: ID 字段
+      description:
+        en_US: 'Field name for the unique result ID. Supports dot notation. Dify example: segment.id. Leave empty if unavailable.'
+        zh_Hans: '每条结果唯一 ID 的字段名，支持点分路径。Dify 示例：segment.id。没有就留空。'
+      type: string
+      default: segment.id
+      required: false
+
     - name: top_k
       label:
         en_US: Top K
