@@ -3,7 +3,7 @@ kind: Plugin
 metadata:
   author: huanghuoguoguo
   name: HttpRAGConnector
-  repository: ''
+  repository: 'https://github.com/huanghuoguoguo/HttpRAGConnector'
   version: 0.1.0
   description:
     en_US: Generic HTTP RAG connector for any RAG service with HTTP API. Define request templates and response mappings to connect to any knowledge base.
